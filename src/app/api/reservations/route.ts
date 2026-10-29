@@ -5,8 +5,8 @@ import { ReservationStatus, Role } from "@prisma/client";
 
 interface CreateReservationInput {
   spaceId?: string;
-  startTime?: string; // Formato ISO: "2026-10-28T10:00:00Z"
-  endTime?: string;   // Formato ISO: "2026-10-28T12:00:00Z"
+  startTime?: string; // Formato ISO UTC: "2026-10-28T10:00:00.000Z"
+  endTime?: string;   // Formato ISO UTC: "2026-10-28T12:00:00.000Z"
 }
 
 // GET /api/reservations - Listar reservas propias
@@ -15,8 +15,8 @@ export async function GET(): Promise<NextResponse> {
     const session = await getSessionUser();
     if (!session.user) {
       return NextResponse.json(
-        { success: false, error: session.error },
-        { status: session.statusCode }
+        { success: false, error: session.error || "No autenticado." },
+        { status: session.statusCode || 401 }
       );
     }
 
@@ -54,7 +54,10 @@ export async function GET(): Promise<NextResponse> {
   } catch (error) {
     console.error("Error al obtener reservas:", error);
     return NextResponse.json(
-      { success: false, error: "Error interno al obtener las reservas." },
+      {
+        success: false,
+        error: error instanceof Error ? error.message : "Error interno al obtener las reservas.",
+      },
       { status: 500 }
     );
   }
@@ -66,8 +69,8 @@ export async function POST(request: Request): Promise<NextResponse> {
     const session = await getSessionUser();
     if (!session.user) {
       return NextResponse.json(
-        { success: false, error: session.error },
-        { status: session.statusCode }
+        { success: false, error: session.error || "No autenticado." },
+        { status: session.statusCode || 401 }
       );
     }
 
@@ -93,10 +96,10 @@ export async function POST(request: Request): Promise<NextResponse> {
       );
     }
 
-    // 1. Regla 3: No en el pasado
-    if (start < now) {
+    // 1. Regla 3: No en el pasado (con tolerancia de 5 minutos para evitar falsos positivos por desfase de reloj)
+    if (start.getTime() < now.getTime() - 5 * 60 * 1000) {
       return NextResponse.json(
-        { success: false, error: "No se puede reservar en una fecha u hora pasada." },
+        { success: false, error: "No se puede reservar en una fecha u hora que ya ha transcurrido." },
         { status: 400 }
       );
     }
@@ -110,12 +113,12 @@ export async function POST(request: Request): Promise<NextResponse> {
       );
     }
 
-    // 3. Regla 1: Horas completas (minutos, segundos y milisegundos en 0)
+    // 3. Regla 1: Horas completas (minutos, segundos en 0)
     if (
-      start.getMinutes() !== 0 ||
-      start.getSeconds() !== 0 ||
-      end.getMinutes() !== 0 ||
-      end.getSeconds() !== 0
+      start.getUTCMinutes() !== 0 ||
+      start.getUTCSeconds() !== 0 ||
+      end.getUTCMinutes() !== 0 ||
+      end.getUTCSeconds() !== 0
     ) {
       return NextResponse.json(
         { success: false, error: "Las reservas solo se permiten en horas completas (ejemplo: 10:00 a 12:00)." },
@@ -132,18 +135,18 @@ export async function POST(request: Request): Promise<NextResponse> {
       );
     }
 
-    // 5. Regla 2: Horario permitido entre las 7:00 y las 21:00
-    const startHour = start.getHours();
-    const endHour = end.getHours();
-    if (startHour < 7 || endHour > 21 || (endHour === 21 && end.getMinutes() > 0)) {
+    // 5. Regla 2: Horario permitido entre las 7:00 y las 21:00 (en formato horario UTC normalizado)
+    const startHour = start.getUTCHours();
+    const endHour = end.getUTCHours();
+    if (startHour < 7 || endHour > 21 || (endHour === 21 && end.getUTCMinutes() > 0)) {
       return NextResponse.json(
         { success: false, error: "El horario permitido de reservas es únicamente entre las 7:00 y las 21:00." },
         { status: 400 }
       );
     }
 
-    // Comprobar que sea el mismo día calendario
-    if (start.toDateString() !== end.toDateString()) {
+    // Comprobar que sea el mismo día calendario (formato YYYY-MM-DD)
+    if (start.toISOString().split("T")[0] !== end.toISOString().split("T")[0]) {
       return NextResponse.json(
         { success: false, error: "La reserva debe comenzar y terminar el mismo día." },
         { status: 400 }
@@ -179,7 +182,6 @@ export async function POST(request: Request): Promise<NextResponse> {
     }
 
     // 8. Regla 4: No solapamiento en el mismo espacio
-    // Dos intervalos [A, B] y [C, D] se solapan si: A < D && B > C
     const spaceOverlap = await prisma.reservation.findFirst({
       where: {
         spaceId,
@@ -249,7 +251,10 @@ export async function POST(request: Request): Promise<NextResponse> {
   } catch (error) {
     console.error("Error al crear reserva:", error);
     return NextResponse.json(
-      { success: false, error: "Error interno al procesar la reserva." },
+      {
+        success: false,
+        error: error instanceof Error ? error.message : "Error interno al procesar la reserva.",
+      },
       { status: 500 }
     );
   }

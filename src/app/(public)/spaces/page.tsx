@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import SpaceCard, { type SpaceItem } from "@/components/SpaceCard";
 import Link from "next/link";
-import { SpaceType } from "@prisma/client";
+import { SpaceType, Space } from "@prisma/client";
 
 // Forzar Server-Side Rendering (SSR) en cada petición
 export const dynamic = "force-dynamic";
@@ -18,15 +18,15 @@ export default async function SpacesPage({ searchParams }: SpacesPageProps) {
   const filterType = isValidType ? (type as SpaceType) : undefined;
 
   // Regla 12: Solo espacios activos en el catálogo público
-  const spaces = await prisma.space.findMany({
+  const spaces: Space[] = await prisma.space.findMany({
     where: {
       isActive: true,
-      ...(filterType && { type: filterType }),
+      ...(filterType ? { type: filterType } : {}),
     },
     orderBy: { createdAt: "desc" },
   });
 
-  const serializedSpaces: SpaceItem[] = spaces.map((s) => ({
+  const serializedSpaces: SpaceItem[] = spaces.map((s: Space) => ({
     ...s,
     hourlyPrice: Number(s.hourlyPrice),
   }));

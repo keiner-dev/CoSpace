@@ -52,10 +52,9 @@ export default function ReservationForm({ spaceId, hourlyPrice }: ReservationFor
     setLoading(true);
 
     try {
-      // Construir fechas en formato ISO
-      // start: YYYY-MM-DDTHH:00:00.000
-      const startIso = new Date(`${date}T${String(startHour).padStart(2, "0")}:00:00`).toISOString();
-      const endIso = new Date(`${date}T${String(endHour).padStart(2, "0")}:00:00`).toISOString();
+      // Construir fechas en formato ISO UTC exacto: YYYY-MM-DDTHH:00:00.000Z
+      const startIso = `${date}T${String(startHour).padStart(2, "0")}:00:00.000Z`;
+      const endIso = `${date}T${String(endHour).padStart(2, "0")}:00:00.000Z`;
 
       const res = await fetch("/api/reservations", {
         method: "POST",

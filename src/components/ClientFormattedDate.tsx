@@ -28,6 +28,7 @@ export default function ClientFormattedDate({ isoString, type = "full" }: Client
     return (
       <span>
         {date.toLocaleDateString(undefined, {
+          timeZone: "UTC",
           weekday: "short",
           year: "numeric",
           month: "short",
@@ -41,6 +42,7 @@ export default function ClientFormattedDate({ isoString, type = "full" }: Client
     return (
       <span>
         {date.toLocaleTimeString(undefined, {
+          timeZone: "UTC",
           hour: "2-digit",
           minute: "2-digit",
         })}
@@ -51,6 +53,7 @@ export default function ClientFormattedDate({ isoString, type = "full" }: Client
   return (
     <span>
       {date.toLocaleString(undefined, {
+        timeZone: "UTC",
         dateStyle: "medium",
         timeStyle: "short",
       })}
