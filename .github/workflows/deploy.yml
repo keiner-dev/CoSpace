@@ -19,22 +19,16 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-
-      - name: Add server to known hosts
-        run: |
-          SSH_HOST=$(echo "${{ secrets.SSH_HOST }}" | tr -d '[:space:]')
-          SSH_PORT=$(echo "${{ secrets.SSH_PORT }}" | tr -d '[:space:]')
-          ssh-keyscan -p "$SSH_PORT" "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          ssh-keyscan -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
 
       - name: Deploy on server
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PATH: ${{ secrets.SSH_PATH }}
         run: |
-          SSH_HOST=$(echo "${{ secrets.SSH_HOST }}" | tr -d '[:space:]')
-          SSH_PORT=$(echo "${{ secrets.SSH_PORT }}" | tr -d '[:space:]')
-          SSH_USER=$(echo "${{ secrets.SSH_USER }}" | tr -d '[:space:]')
-          SSH_PATH=$(echo "${{ secrets.SSH_PATH }}" | tr -d '[:space:]')
-
           ssh -i ~/.ssh/deploy_key \
-              -o StrictHostKeyChecking=no \
               -p "$SSH_PORT" \
               "$SSH_USER@$SSH_HOST" \
               "set -e &&
@@ -49,5 +43,5 @@ jobs:
                echo '→ Construyendo la aplicación...' &&
                npm run build &&
                echo '→ Reiniciando servidor con PM2...' &&
-               (pm2 restart cospace || pm2 start npm --name 'cospace' -- start) &&
+               pm2 restart cospace || pm2 start npm --name 'cospace' -- start &&
                echo '✅ Deploy completado con éxito.'"
