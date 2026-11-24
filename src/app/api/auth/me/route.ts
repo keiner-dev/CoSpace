@@ -1,3 +1,4 @@
+// Es el endpoint que consulta el frontend para saber si hay alguien logueado al cargar la página.
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/session";
 import { prisma } from "@/lib/prisma";

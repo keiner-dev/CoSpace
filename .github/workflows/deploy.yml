@@ -1,0 +1,53 @@
+name: Deploy CoSpace to Server
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Build & Deploy via SSH
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+      - name: Add server to known hosts
+        run: |
+          SSH_HOST=$(echo "${{ secrets.SSH_HOST }}" | tr -d '[:space:]')
+          SSH_PORT=$(echo "${{ secrets.SSH_PORT }}" | tr -d '[:space:]')
+          ssh-keyscan -p "$SSH_PORT" "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Deploy on server
+        run: |
+          SSH_HOST=$(echo "${{ secrets.SSH_HOST }}" | tr -d '[:space:]')
+          SSH_PORT=$(echo "${{ secrets.SSH_PORT }}" | tr -d '[:space:]')
+          SSH_USER=$(echo "${{ secrets.SSH_USER }}" | tr -d '[:space:]')
+          SSH_PATH=$(echo "${{ secrets.SSH_PATH }}" | tr -d '[:space:]')
+
+          ssh -i ~/.ssh/deploy_key \
+              -o StrictHostKeyChecking=no \
+              -p "$SSH_PORT" \
+              "$SSH_USER@$SSH_HOST" \
+              "set -e &&
+               echo '→ Entrando al proyecto...' &&
+               cd $SSH_PATH &&
+               echo '→ Obteniendo últimos cambios de GitHub...' &&
+               git pull origin main &&
+               echo '→ Instalando dependencias...' &&
+               npm ci &&
+               echo '→ Generando cliente de Prisma...' &&
+               npx prisma generate &&
+               echo '→ Construyendo la aplicación...' &&
+               npm run build &&
+               echo '→ Reiniciando servidor con PM2...' &&
+               (pm2 restart cospace || pm2 start npm --name 'cospace' -- start) &&
+               echo '✅ Deploy completado con éxito.'"
